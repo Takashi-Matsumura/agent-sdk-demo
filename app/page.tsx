@@ -182,6 +182,7 @@ export default function Home() {
                 lastUsd={lastCostUsd}
                 totalUsd={totalCostUsd}
                 runCount={runCount}
+                running={running}
                 onReset={resetTotal}
               />
             </div>
@@ -292,12 +293,14 @@ function CostPanel({
   lastUsd,
   totalUsd,
   runCount,
+  running,
   onReset,
 }: {
   fx: FxRate | null;
   lastUsd: number | null;
   totalUsd: number;
   runCount: number;
+  running: boolean;
   onReset: () => void;
 }) {
   const lastJpy = lastUsd != null && fx ? lastUsd * fx.rate : null;
@@ -311,7 +314,7 @@ function CostPanel({
             label="今回の利用料"
             usd={lastUsd}
             jpy={lastJpy}
-            emptyLabel="未実行"
+            emptyLabel={running ? "算出中…" : "未実行"}
           />
           <Stat
             label={`累計利用料 · ${runCount}回`}
