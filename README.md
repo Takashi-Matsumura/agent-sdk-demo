@@ -49,8 +49,14 @@ npm run dev
 
 | エンドポイント | 概要 |
 |---|---|
-| `POST /api/review` | `{ filename, code }` を受け取り、エージェントの進行を NDJSON で逐次ストリーミング |
+| `POST /api/review` | `{ filename, code }` を受け取り、エージェントの進行を NDJSON で逐次ストリーミング。完了時に SQLite に記録 |
 | `GET /api/fx` | USD/JPY 為替レート（無料 API `open.er-api.com` を参照、1時間キャッシュ） |
+| `GET /api/usage` | 累計実行回数・累計コスト・直近20件の履歴 |
+| `DELETE /api/usage` | 履歴を全削除 |
+
+## 永続化
+
+実行結果（ファイル名・モデル・コスト・ターン数・所要時間）は `data/usage.db` に `better-sqlite3` で記録され、リロード後も累計利用料が残ります。`data/` は `.gitignore` 済み。
 
 ### `POST /api/review` のイベント種別
 
