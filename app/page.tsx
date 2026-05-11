@@ -32,9 +32,25 @@ function getUserName(id) {
 }
 `;
 
+const SAMPLE_PROMPTS = [
+  {
+    name: "一般レビュー",
+    text: "現在のディレクトリにあるコードをレビューしてください。バグ、可読性、命名、エラーハンドリング、セキュリティ、慣用表現の観点で、重要度（high / medium / low）付きで指摘してください。最後に良い点もまとめてください。",
+  },
+  {
+    name: "セキュリティ監査",
+    text: "現在のディレクトリにあるコードをセキュリティ観点で監査してください。OWASP Top 10、入力検証、インジェクションリスク、認証認可、機密情報の漏洩を重点的にチェックし、各指摘にリスクレベル（High / Medium / Low）と参考になる CWE-ID を付与してください。",
+  },
+  {
+    name: "テスト設計",
+    text: "現在のディレクトリにあるコードに対する単体テストケースを設計してください。正常系・異常系・境界値・エッジケースを網羅し、Jest 互換のテストコード例を示してください。テスト不可能な箇所がある場合はリファクタリング案も提示してください。",
+  },
+];
+
 export default function Home() {
   const [filename, setFilename] = useState("snippet.js");
   const [code, setCode] = useState(SAMPLE);
+  const [userPrompt, setUserPrompt] = useState(SAMPLE_PROMPTS[0].text);
   const [events, setEvents] = useState<Event[]>([]);
   const [running, setRunning] = useState(false);
   const [fx, setFx] = useState<FxRate | null>(null);
@@ -83,7 +99,7 @@ export default function Home() {
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ filename, code }),
+        body: JSON.stringify({ filename, code, prompt: userPrompt }),
         signal: abort.signal,
       });
 
@@ -135,6 +151,11 @@ export default function Home() {
   };
 
   const cancel = () => abortRef.current?.abort();
+  const clear = () => {
+    setEvents([]);
+    setLastCostUsd(null);
+    setCompleted(false);
+  };
   const resetTotal = async () => {
     if (!confirm("累計利用料と履歴をすべて削除します。よろしいですか？")) return;
     await fetch("/api/usage", { method: "DELETE" }).catch(() => {});
@@ -149,9 +170,9 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
           <section className="flex flex-col gap-4 lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] lg:overflow-hidden">
             <header className="shrink-0">
-              <h1 className="text-2xl font-semibold">Claude Agent SDK · コードレビュー</h1>
+              <h1 className="text-2xl font-semibold">Claude Agent SDK · プレイグラウンド</h1>
               <p className="text-sm text-zinc-500 mt-1">
-                Read / Glob / Grep のみを許可した読み取り専用エージェントが、貼り付けたコードをレビューします。
+                Read / Glob / Grep のみを許可した読み取り専用エージェントに、プロンプトで指示を与えて挙動の違いを観察できます。
               </p>
             </header>
 
@@ -183,20 +204,53 @@ export default function Home() {
                 disabled={running}
                 spellCheck={false}
               />
+
+              <div className="shrink-0 space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="text-sm font-medium">プロンプト</label>
+                  <span className="text-xs text-zinc-500">サンプル:</span>
+                  {SAMPLE_PROMPTS.map((s) => (
+                    <button
+                      key={s.name}
+                      onClick={() => setUserPrompt(s.text)}
+                      disabled={running}
+                      className="rounded border border-zinc-300 dark:border-zinc-700 px-2 py-0.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  className="w-full h-24 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2 text-sm resize-none"
+                  value={userPrompt}
+                  onChange={(e) => setUserPrompt(e.target.value)}
+                  disabled={running}
+                  placeholder="エージェントへの指示を入力（空欄なら既定のレビュープロンプトを使用）"
+                />
+              </div>
+
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={review}
                   disabled={running || !code.trim()}
                   className="rounded bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 text-sm font-medium disabled:opacity-50"
                 >
-                  {running ? "レビュー中…" : "レビューを実行"}
+                  {running ? "実行中…" : "エージェントを実行"}
                 </button>
-                {running && (
+                {running ? (
                   <button
                     onClick={cancel}
                     className="rounded border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm"
                   >
                     中止
+                  </button>
+                ) : (
+                  <button
+                    onClick={clear}
+                    disabled={events.length === 0}
+                    className="rounded border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm disabled:opacity-40"
+                  >
+                    クリア
                   </button>
                 )}
               </div>
