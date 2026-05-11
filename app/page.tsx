@@ -206,6 +206,7 @@ export default function Home() {
             <h2 className="text-lg font-semibold sticky top-0 bg-zinc-50 dark:bg-zinc-950 py-1 z-10">
               エージェントの動き
             </h2>
+            <EventLegend />
             <div className="space-y-2">
               {events.length === 0 && (
                 <p className="text-sm text-zinc-500">まだ実行されていません。</p>
@@ -348,6 +349,136 @@ function toEvent(raw: Record<string, unknown>): Event {
   return { kind: "system", text: JSON.stringify(raw) };
 }
 
+type BadgeStyle = {
+  label: string;
+  parent?: string;
+  className: string;
+};
+
+function badgeFor(kind: Event["kind"]): BadgeStyle {
+  switch (kind) {
+    case "status":
+      return {
+        label: "status",
+        className: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+      };
+    case "system":
+      return {
+        label: "system",
+        className: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+      };
+    case "thinking":
+      return {
+        label: "thinking",
+        parent: "assistant",
+        className:
+          "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200",
+      };
+    case "tool":
+      return {
+        label: "tool_use",
+        parent: "assistant",
+        className:
+          "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+      };
+    case "text":
+      return {
+        label: "text",
+        parent: "assistant",
+        className:
+          "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+      };
+    case "result":
+      return {
+        label: "result",
+        className:
+          "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+      };
+    case "warn":
+      return {
+        label: "warn",
+        className:
+          "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+      };
+    case "error":
+      return {
+        label: "error",
+        className:
+          "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+      };
+  }
+}
+
+function Badge({ kind }: { kind: Event["kind"] }) {
+  const b = badgeFor(kind);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wide ${b.className}`}
+      title={b.parent ? `SDK: assistant.content[].type === "${b.label}"` : `SDK: message.type === "${b.label}"`}
+    >
+      {b.parent && (
+        <span className="opacity-60 normal-case tracking-normal">
+          {b.parent} ▸
+        </span>
+      )}
+      {b.label}
+    </span>
+  );
+}
+
+function EventLegend() {
+  return (
+    <details className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs">
+      <summary className="cursor-pointer px-3 py-2 text-zinc-600 dark:text-zinc-400">
+        SDK のメッセージ構造を見る
+      </summary>
+      <div className="px-3 pb-3 space-y-2 text-zinc-700 dark:text-zinc-300">
+        <p>
+          Agent SDK は <code className="font-mono">query()</code> から非同期に
+          <strong> メッセージ</strong> を流します。各メッセージには
+          <code className="font-mono"> type</code> があり、
+          <code className="font-mono"> assistant</code> の中身は
+          <strong> content ブロックの配列</strong> です。
+        </p>
+        <ul className="space-y-1.5 list-none">
+          <li className="flex items-start gap-2">
+            <Badge kind="system" />
+            <span>セッション初期化など SDK 自体のイベント</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Badge kind="thinking" />
+            <span>
+              <code className="font-mono">assistant.content[]</code> の中の思考ブロック（最終出力には含まれない内部推論）
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Badge kind="tool" />
+            <span>
+              <code className="font-mono">assistant.content[]</code> のツール呼び出し（Read / Glob / Grep など）。SDK が自動実行して結果を次ターンに戻します
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Badge kind="text" />
+            <span>
+              <code className="font-mono">assistant.content[]</code> のテキスト発話（ユーザー向け）
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Badge kind="result" />
+            <span>
+              終端で 1 回だけ流れる集計メッセージ（コスト・ターン数・最終テキストの再掲）
+            </span>
+          </li>
+        </ul>
+        <p className="text-zinc-500">
+          このアプリでは、assistant メッセージを 1 ブロックずつフラット化して NDJSON で配信しています（
+          <code className="font-mono">app/api/review/route.ts</code> 参照）。
+        </p>
+      </div>
+    </details>
+  );
+}
+
 function plainPreview(text: string, max: number): string {
   const stripped = text
     .replace(/```[\s\S]*?```/g, "")
@@ -364,15 +495,21 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
     case "system":
       return (
         <div className={`${base} border-zinc-200 dark:border-zinc-800 text-zinc-500`}>
-          {ev.text}
+          <div className="flex items-center gap-2">
+            <Badge kind={ev.kind} />
+            <span>{ev.text}</span>
+          </div>
         </div>
       );
     case "tool":
       if (collapse) {
         return (
           <details className={`${base} border-blue-300 dark:border-blue-900 bg-blue-50 dark:bg-blue-950`}>
-            <summary className="cursor-pointer font-mono text-xs text-blue-700 dark:text-blue-300">
-              tool: {ev.tool}
+            <summary className="cursor-pointer flex items-center gap-2">
+              <Badge kind="tool" />
+              <span className="font-mono text-xs text-blue-700 dark:text-blue-300">
+                {ev.tool}
+              </span>
             </summary>
             <pre className="mt-1 whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
               {JSON.stringify(ev.input, null, 2)}
@@ -382,8 +519,11 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
       }
       return (
         <div className={`${base} border-blue-300 dark:border-blue-900 bg-blue-50 dark:bg-blue-950`}>
-          <div className="font-mono text-xs text-blue-700 dark:text-blue-300">
-            tool: {ev.tool}
+          <div className="flex items-center gap-2">
+            <Badge kind="tool" />
+            <span className="font-mono text-xs text-blue-700 dark:text-blue-300">
+              {ev.tool}
+            </span>
           </div>
           <pre className="mt-1 whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
             {JSON.stringify(ev.input, null, 2)}
@@ -393,31 +533,34 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
     case "thinking":
       if (collapse) {
         return (
-          <details className={`${base} border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300`}>
-            <summary className="cursor-pointer text-xs">
-              thinking
-              <span className="ml-2 text-purple-500 dark:text-purple-400 italic font-normal">
-                {ev.text.slice(0, 60).replace(/\s+/g, " ")}
-                {ev.text.length > 60 ? "…" : ""}
+          <details className={`${base} border-purple-200 dark:border-purple-900`}>
+            <summary className="cursor-pointer flex items-center gap-2">
+              <Badge kind="thinking" />
+              <span className="text-xs text-purple-500 dark:text-purple-400 italic">
+                {plainPreview(ev.text, 60)}
               </span>
             </summary>
-            <div className="mt-1 whitespace-pre-wrap italic">{ev.text}</div>
+            <div className="mt-1 whitespace-pre-wrap italic text-purple-700 dark:text-purple-300">
+              {ev.text}
+            </div>
           </details>
         );
       }
       return (
-        <div className={`${base} border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300 italic`}>
-          <span className="text-xs not-italic">thinking</span>
-          <div className="mt-1 whitespace-pre-wrap">{ev.text}</div>
+        <div className={`${base} border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300`}>
+          <div className="flex items-center gap-2">
+            <Badge kind="thinking" />
+          </div>
+          <div className="mt-1 whitespace-pre-wrap italic">{ev.text}</div>
         </div>
       );
     case "text":
       if (collapse) {
         return (
           <details className={`${base} border-zinc-200 dark:border-zinc-800`}>
-            <summary className="cursor-pointer text-xs text-zinc-500">
-              assistant
-              <span className="ml-2 text-zinc-600 dark:text-zinc-400">
+            <summary className="cursor-pointer flex items-center gap-2">
+              <Badge kind="text" />
+              <span className="text-xs text-zinc-600 dark:text-zinc-400">
                 {plainPreview(ev.text, 60)}
               </span>
             </summary>
@@ -429,25 +572,39 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
       }
       return (
         <div className={`${base} border-zinc-200 dark:border-zinc-800`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge kind="text" />
+          </div>
           <Markdown>{ev.text}</Markdown>
         </div>
       );
     case "result":
       return (
-        <div className={`${base} border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 font-medium`}>
-          完了 · {ev.turns} ターン · ${ev.cost.toFixed(4)}
+        <div className={`${base} border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300`}>
+          <div className="flex items-center gap-2">
+            <Badge kind="result" />
+            <span className="font-medium">
+              完了 · {ev.turns} ターン · ${ev.cost.toFixed(4)}
+            </span>
+          </div>
         </div>
       );
     case "warn":
       return (
         <div className={`${base} border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300`}>
-          {ev.text}
+          <div className="flex items-center gap-2">
+            <Badge kind="warn" />
+            <span>{ev.text}</span>
+          </div>
         </div>
       );
     case "error":
       return (
         <div className={`${base} border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300`}>
-          {ev.text}
+          <div className="flex items-center gap-2">
+            <Badge kind="error" />
+            <span>{ev.text}</span>
+          </div>
         </div>
       );
   }
