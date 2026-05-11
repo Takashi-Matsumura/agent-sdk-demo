@@ -9,26 +9,22 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const SYSTEM_PROMPT = `You are a senior software engineer doing a code review.
+const SYSTEM_PROMPT = `You are a senior software engineer assisting with code-related tasks.
 
-Review the file(s) in the current working directory. Focus on:
-- Bugs and correctness issues
-- Readability and naming
-- Error handling
-- Security concerns at a generic level (input validation, injection risk, secrets)
-- Idiomatic improvements for the language used
+The current working directory contains one or more files the user wants you to work with.
+Use the Read, Glob, and Grep tools to explore the files. Do NOT attempt to modify any files.
 
-Use the Read, Glob, and Grep tools to explore the code. Do NOT attempt to modify any files.
-
-Respond in Japanese. Structure the final answer as:
-1. 概要 (1-2行)
-2. 指摘事項 (重要度: high/medium/low, ファイル名:行番号, 内容, 改善案)
-3. 良い点
+Always follow the user's instructions carefully and respond in Japanese with well-structured Markdown
+(headings, lists, code blocks, tables as appropriate).
 `;
+
+const DEFAULT_PROMPT = (filename: string) =>
+  `現在のディレクトリにある ${filename} をレビューしてください。バグ、可読性、命名、エラーハンドリング、セキュリティ、慣用表現の観点で、重要度付きで指摘してください。最後に良い点もまとめてください。`;
 
 type ReviewRequest = {
   filename?: string;
   code?: string;
+  prompt?: string;
 };
 
 export async function POST(request: Request) {
@@ -63,7 +59,8 @@ export async function POST(request: Request) {
       };
 
       try {
-        const userPrompt = `Please review ${filename} in the current directory.`;
+        const userPrompt =
+          body.prompt?.trim() || DEFAULT_PROMPT(filename);
         send({ type: "prompt", role: "system", text: SYSTEM_PROMPT });
         send({ type: "prompt", role: "user", text: userPrompt });
         send({ type: "status", message: `レビュー開始: ${filename}` });
