@@ -580,13 +580,21 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
       );
     case "result":
       return (
-        <div className={`${base} border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300`}>
-          <div className="flex items-center gap-2">
+        <div className={`${base} border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950`}>
+          <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
             <Badge kind="result" />
             <span className="font-medium">
               完了 · {ev.turns} ターン · ${ev.cost.toFixed(4)}
             </span>
           </div>
+          {ev.text && (
+            <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-900/50">
+              <div className="text-xs text-green-700 dark:text-green-300 mb-2 font-medium">
+                最終レビュー結果
+              </div>
+              <Markdown>{ev.text}</Markdown>
+            </div>
+          )}
         </div>
       );
     case "warn":
