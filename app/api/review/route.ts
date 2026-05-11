@@ -63,10 +63,13 @@ export async function POST(request: Request) {
       };
 
       try {
+        const userPrompt = `Please review ${filename} in the current directory.`;
+        send({ type: "prompt", role: "system", text: SYSTEM_PROMPT });
+        send({ type: "prompt", role: "user", text: userPrompt });
         send({ type: "status", message: `レビュー開始: ${filename}` });
 
         for await (const msg of query({
-          prompt: `Please review ${filename} in the current directory.`,
+          prompt: userPrompt,
           options: {
             model: MODEL,
             cwd: workDir,
