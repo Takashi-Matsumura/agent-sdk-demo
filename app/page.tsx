@@ -214,7 +214,12 @@ export default function Home() {
                 <EventRow
                   key={i}
                   ev={ev}
-                  collapse={completed && (ev.kind === "thinking" || ev.kind === "tool")}
+                  collapse={
+                    completed &&
+                    (ev.kind === "thinking" ||
+                      ev.kind === "tool" ||
+                      ev.kind === "text")
+                  }
                 />
               ))}
               <div ref={bottomRef} aria-hidden />
@@ -343,6 +348,15 @@ function toEvent(raw: Record<string, unknown>): Event {
   return { kind: "system", text: JSON.stringify(raw) };
 }
 
+function plainPreview(text: string, max: number): string {
+  const stripped = text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/[`*_#>\-\[\]()]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.length > max ? stripped.slice(0, max) + "…" : stripped;
+}
+
 function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
   const base = "rounded border px-3 py-2 text-sm";
   switch (ev.kind) {
@@ -398,6 +412,21 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
         </div>
       );
     case "text":
+      if (collapse) {
+        return (
+          <details className={`${base} border-zinc-200 dark:border-zinc-800`}>
+            <summary className="cursor-pointer text-xs text-zinc-500">
+              assistant
+              <span className="ml-2 text-zinc-600 dark:text-zinc-400">
+                {plainPreview(ev.text, 60)}
+              </span>
+            </summary>
+            <div className="mt-2">
+              <Markdown>{ev.text}</Markdown>
+            </div>
+          </details>
+        );
+      }
       return (
         <div className={`${base} border-zinc-200 dark:border-zinc-800`}>
           <Markdown>{ev.text}</Markdown>
