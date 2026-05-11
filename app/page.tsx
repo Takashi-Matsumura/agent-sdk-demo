@@ -114,17 +114,17 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <div className="mx-auto max-w-[1600px] px-6 py-8">
-        <header className="mb-6">
+    <div className="flex-1 lg:min-h-0 lg:flex lg:flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
+        <header className="mb-6 lg:shrink-0">
           <h1 className="text-2xl font-semibold">Claude Agent SDK · コードレビュー</h1>
           <p className="text-sm text-zinc-500 mt-1">
             Read / Glob / Grep のみを許可した読み取り専用エージェントが、貼り付けたコードをレビューします。
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:flex-1 lg:min-h-0">
+          <section className="space-y-4 lg:overflow-y-auto lg:pr-2 lg:pb-2">
             <CostPanel
               fx={fx}
               lastUsd={lastCostUsd}
@@ -170,8 +170,10 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">エージェントの動き</h2>
+          <section className="space-y-3 lg:overflow-y-auto lg:pr-2 lg:pb-2">
+            <h2 className="text-lg font-semibold lg:sticky lg:top-0 bg-zinc-50 dark:bg-zinc-950 lg:py-1 lg:z-10">
+              エージェントの動き
+            </h2>
             <div className="space-y-2">
               {events.length === 0 && (
                 <p className="text-sm text-zinc-500">まだ実行されていません。</p>
