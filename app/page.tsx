@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Event =
   | { kind: "status"; text: string }
@@ -113,70 +115,74 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <main className="mx-auto max-w-5xl px-6 py-10 space-y-6">
-        <header>
+      <div className="mx-auto max-w-[1600px] px-6 py-8">
+        <header className="mb-6">
           <h1 className="text-2xl font-semibold">Claude Agent SDK · コードレビュー</h1>
           <p className="text-sm text-zinc-500 mt-1">
             Read / Glob / Grep のみを許可した読み取り専用エージェントが、貼り付けたコードをレビューします。
           </p>
         </header>
 
-        <CostPanel
-          fx={fx}
-          lastUsd={lastCostUsd}
-          totalUsd={totalCostUsd}
-          onReset={resetTotal}
-        />
-
-        <section className="space-y-3">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium">ファイル名</label>
-            <input
-              className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm w-64"
-              value={filename}
-              onChange={(e) => setFilename(e.target.value)}
-              disabled={running}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <CostPanel
+              fx={fx}
+              lastUsd={lastCostUsd}
+              totalUsd={totalCostUsd}
+              onReset={resetTotal}
             />
-            <span className="text-xs text-zinc-500">拡張子で言語を Claude に伝えます</span>
-          </div>
-          <textarea
-            className="w-full h-72 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 font-mono text-sm"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            disabled={running}
-            spellCheck={false}
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={review}
-              disabled={running || !code.trim()}
-              className="rounded bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {running ? "レビュー中…" : "レビューを実行"}
-            </button>
-            {running && (
-              <button
-                onClick={cancel}
-                className="rounded border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm"
-              >
-                中止
-              </button>
-            )}
-          </div>
-        </section>
 
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">エージェントの動き</h2>
-          <div className="space-y-2">
-            {events.length === 0 && (
-              <p className="text-sm text-zinc-500">まだ実行されていません。</p>
-            )}
-            {events.map((ev, i) => (
-              <EventRow key={i} ev={ev} />
-            ))}
-          </div>
-        </section>
-      </main>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium">ファイル名</label>
+                <input
+                  className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm w-64"
+                  value={filename}
+                  onChange={(e) => setFilename(e.target.value)}
+                  disabled={running}
+                />
+                <span className="text-xs text-zinc-500">拡張子で言語を Claude に伝えます</span>
+              </div>
+              <textarea
+                className="w-full h-80 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 font-mono text-sm"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                disabled={running}
+                spellCheck={false}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={review}
+                  disabled={running || !code.trim()}
+                  className="rounded bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  {running ? "レビュー中…" : "レビューを実行"}
+                </button>
+                {running && (
+                  <button
+                    onClick={cancel}
+                    className="rounded border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm"
+                  >
+                    中止
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">エージェントの動き</h2>
+            <div className="space-y-2">
+              {events.length === 0 && (
+                <p className="text-sm text-zinc-500">まだ実行されていません。</p>
+              )}
+              {events.map((ev, i) => (
+                <EventRow key={i} ev={ev} />
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
@@ -196,8 +202,8 @@ function CostPanel({
   const totalJpy = fx ? totalUsd * fx.rate : null;
 
   return (
-    <section className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex gap-6 flex-wrap">
           <Stat
             label="今回の利用料"
@@ -234,7 +240,7 @@ function CostPanel({
           </button>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -316,14 +322,14 @@ function EventRow({ ev }: { ev: Event }) {
     case "thinking":
       return (
         <div className={`${base} border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300 italic`}>
-          <span className="text-xs">thinking</span>
+          <span className="text-xs not-italic">thinking</span>
           <div className="mt-1 whitespace-pre-wrap">{ev.text}</div>
         </div>
       );
     case "text":
       return (
-        <div className={`${base} border-zinc-200 dark:border-zinc-800 whitespace-pre-wrap`}>
-          {ev.text}
+        <div className={`${base} border-zinc-200 dark:border-zinc-800`}>
+          <Markdown>{ev.text}</Markdown>
         </div>
       );
     case "result":
@@ -333,7 +339,9 @@ function EventRow({ ev }: { ev: Event }) {
             完了 · {ev.turns} ターン · ${ev.cost.toFixed(4)}
           </div>
           {ev.text && (
-            <div className="mt-2 whitespace-pre-wrap text-sm">{ev.text}</div>
+            <div className="mt-2">
+              <Markdown>{ev.text}</Markdown>
+            </div>
           )}
         </div>
       );
@@ -344,4 +352,83 @@ function EventRow({ ev }: { ev: Event }) {
         </div>
       );
   }
+}
+
+function Markdown({ children }: { children: string }) {
+  return (
+    <div className="markdown text-sm leading-relaxed">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => <h1 className="text-xl font-semibold mt-4 mb-2">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-lg font-semibold mt-4 mb-2">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-base font-semibold mt-3 mb-1.5">{children}</h3>,
+          h4: ({ children }) => <h4 className="text-sm font-semibold mt-2 mb-1">{children}</h4>,
+          p: ({ children }) => <p className="my-2">{children}</p>,
+          ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
+          li: ({ children }) => <li>{children}</li>,
+          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+          em: ({ children }) => <em className="italic">{children}</em>,
+          hr: () => <hr className="my-3 border-zinc-300 dark:border-zinc-700" />,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-zinc-300 dark:border-zinc-700 pl-3 my-2 text-zinc-600 dark:text-zinc-400">
+              {children}
+            </blockquote>
+          ),
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 underline"
+            >
+              {children}
+            </a>
+          ),
+          code: ({ className, children, ...props }) => {
+            const inline = !className?.includes("language-");
+            if (inline) {
+              return (
+                <code
+                  className="rounded bg-zinc-200/70 dark:bg-zinc-800 px-1 py-0.5 font-mono text-[0.85em]"
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
+            return (
+              <code
+                className={`block font-mono text-xs whitespace-pre ${className ?? ""}`}
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+          pre: ({ children }) => (
+            <pre className="my-2 overflow-x-auto rounded bg-zinc-900 text-zinc-100 dark:bg-zinc-800 p-3">
+              {children}
+            </pre>
+          ),
+          table: ({ children }) => (
+            <div className="my-2 overflow-x-auto">
+              <table className="border-collapse text-xs">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border border-zinc-300 dark:border-zinc-700 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-left">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border border-zinc-300 dark:border-zinc-700 px-2 py-1">{children}</td>
+          ),
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
 }
