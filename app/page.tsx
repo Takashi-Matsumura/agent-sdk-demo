@@ -114,26 +114,28 @@ export default function Home() {
   };
 
   return (
-    <div className="flex-1 lg:min-h-0 lg:flex lg:flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 lg:flex-1 lg:min-h-0 lg:flex lg:flex-col">
-        <header className="mb-6 lg:shrink-0">
-          <h1 className="text-2xl font-semibold">Claude Agent SDK · コードレビュー</h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Read / Glob / Grep のみを許可した読み取り専用エージェントが、貼り付けたコードをレビューします。
-          </p>
-        </header>
+    <div className="flex-1 lg:h-screen lg:overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 lg:h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-full">
+          <section className="flex flex-col gap-4 lg:h-full lg:overflow-hidden lg:min-h-0">
+            <header className="lg:shrink-0">
+              <h1 className="text-2xl font-semibold">Claude Agent SDK · コードレビュー</h1>
+              <p className="text-sm text-zinc-500 mt-1">
+                Read / Glob / Grep のみを許可した読み取り専用エージェントが、貼り付けたコードをレビューします。
+              </p>
+            </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:flex-1 lg:min-h-0">
-          <section className="space-y-4 lg:overflow-y-auto lg:pr-2 lg:pb-2">
-            <CostPanel
-              fx={fx}
-              lastUsd={lastCostUsd}
-              totalUsd={totalCostUsd}
-              onReset={resetTotal}
-            />
+            <div className="lg:shrink-0">
+              <CostPanel
+                fx={fx}
+                lastUsd={lastCostUsd}
+                totalUsd={totalCostUsd}
+                onReset={resetTotal}
+              />
+            </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 lg:flex-1 lg:min-h-0">
+              <div className="flex items-center gap-3 lg:shrink-0">
                 <label className="text-sm font-medium">ファイル名</label>
                 <input
                   className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm w-64"
@@ -144,13 +146,13 @@ export default function Home() {
                 <span className="text-xs text-zinc-500">拡張子で言語を Claude に伝えます</span>
               </div>
               <textarea
-                className="w-full h-80 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 font-mono text-sm"
+                className="w-full rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 font-mono text-sm h-72 lg:h-auto lg:flex-1 lg:min-h-[12rem] resize-none"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 disabled={running}
                 spellCheck={false}
               />
-              <div className="flex gap-2">
+              <div className="flex gap-2 lg:shrink-0">
                 <button
                   onClick={review}
                   disabled={running || !code.trim()}
@@ -170,7 +172,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="space-y-3 lg:overflow-y-auto lg:pr-2 lg:pb-2">
+          <section className="space-y-3 lg:h-full lg:overflow-y-auto lg:pr-2 lg:pb-2 lg:min-h-0">
             <h2 className="text-lg font-semibold lg:sticky lg:top-0 bg-zinc-50 dark:bg-zinc-950 lg:py-1 lg:z-10">
               エージェントの動き
             </h2>
