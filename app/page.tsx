@@ -8,6 +8,7 @@ import { MODEL } from "@/app/lib/config";
 type Event =
   | { kind: "status"; text: string }
   | { kind: "system"; text: string }
+  | { kind: "prompt"; role: "system" | "user"; text: string }
   | { kind: "tool"; tool: string; input: unknown }
   | { kind: "text"; text: string }
   | { kind: "thinking"; text: string }
@@ -331,6 +332,10 @@ function toEvent(raw: Record<string, unknown>): Event {
   const t = raw.type as string;
   if (t === "status") return { kind: "status", text: String(raw.message ?? "") };
   if (t === "system") return { kind: "system", text: String(raw.message ?? "") };
+  if (t === "prompt") {
+    const role = raw.role === "user" ? "user" : "system";
+    return { kind: "prompt", role, text: String(raw.text ?? "") };
+  }
   if (t === "tool_use") {
     return { kind: "tool", tool: String(raw.tool ?? "?"), input: raw.input };
   }
@@ -355,7 +360,7 @@ type BadgeStyle = {
   className: string;
 };
 
-function badgeFor(kind: Event["kind"]): BadgeStyle {
+function badgeFor(kind: Event["kind"], role?: "system" | "user"): BadgeStyle {
   switch (kind) {
     case "status":
       return {
@@ -366,6 +371,15 @@ function badgeFor(kind: Event["kind"]): BadgeStyle {
       return {
         label: "system",
         className: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+      };
+    case "prompt":
+      return {
+        label: role === "user" ? "prompt" : "systemPrompt",
+        parent: "input",
+        className:
+          role === "user"
+            ? "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200"
+            : "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
       };
     case "thinking":
       return {
@@ -409,12 +423,26 @@ function badgeFor(kind: Event["kind"]): BadgeStyle {
   }
 }
 
-function Badge({ kind }: { kind: Event["kind"] }) {
-  const b = badgeFor(kind);
+function Badge({
+  kind,
+  role,
+}: {
+  kind: Event["kind"];
+  role?: "system" | "user";
+}) {
+  const b = badgeFor(kind, role);
+  const title =
+    kind === "prompt"
+      ? role === "user"
+        ? "SDK: query({ prompt: ... }) に渡した user メッセージ"
+        : "SDK: options.systemPrompt に渡した system 指示"
+      : b.parent
+        ? `SDK: assistant.content[].type === "${b.label}"`
+        : `SDK: message.type === "${b.label}"`;
   return (
     <span
       className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wide ${b.className}`}
-      title={b.parent ? `SDK: assistant.content[].type === "${b.label}"` : `SDK: message.type === "${b.label}"`}
+      title={title}
     >
       {b.parent && (
         <span className="opacity-60 normal-case tracking-normal">
@@ -441,6 +469,18 @@ function EventLegend() {
           <strong> content ブロックの配列</strong> です。
         </p>
         <ul className="space-y-1.5 list-none">
+          <li className="flex items-start gap-2">
+            <Badge kind="prompt" role="system" />
+            <span>
+              <code className="font-mono">options.systemPrompt</code> に渡した指示。エージェントのレビュー観点・回答フォーマットなどを規定
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Badge kind="prompt" role="user" />
+            <span>
+              <code className="font-mono">query({"{ prompt }"})</code> に渡した最初の user メッセージ。レビュー対象の指定など
+            </span>
+          </li>
           <li className="flex items-start gap-2">
             <Badge kind="system" />
             <span>セッション初期化など SDK 自体のイベント</span>
@@ -501,6 +541,29 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
           </div>
         </div>
       );
+    case "prompt": {
+      const borderCls =
+        ev.role === "user"
+          ? "border-teal-200 dark:border-teal-900 bg-teal-50/50 dark:bg-teal-950/30"
+          : "border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30";
+      const previewCls =
+        ev.role === "user"
+          ? "text-teal-700 dark:text-teal-300"
+          : "text-indigo-700 dark:text-indigo-300";
+      return (
+        <details className={`${base} ${borderCls}`}>
+          <summary className="cursor-pointer flex items-center gap-2">
+            <Badge kind="prompt" role={ev.role} />
+            <span className={`text-xs ${previewCls}`}>
+              {plainPreview(ev.text, 80)}
+            </span>
+          </summary>
+          <pre className="mt-2 whitespace-pre-wrap font-mono text-xs text-zinc-700 dark:text-zinc-300">
+            {ev.text}
+          </pre>
+        </details>
+      );
+    }
     case "tool":
       if (collapse) {
         return (
