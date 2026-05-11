@@ -3,12 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { getTotals, insertRun } from "@/app/lib/db";
+import { MODEL } from "@/app/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-const MODEL = "claude-sonnet-4-6";
 
 const SYSTEM_PROMPT = `You are a senior software engineer doing a code review.
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { MODEL } from "@/app/lib/config";
 
 type Event =
   | { kind: "status"; text: string }
@@ -39,7 +40,9 @@ export default function Home() {
   const [lastCostUsd, setLastCostUsd] = useState<number | null>(null);
   const [totalCostUsd, setTotalCostUsd] = useState(0);
   const [runCount, setRunCount] = useState(0);
+  const [completed, setCompleted] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetch("/api/fx")
@@ -62,9 +65,15 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!running && !completed) return;
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [events.length, running, completed]);
+
   const review = async () => {
     setEvents([]);
     setLastCostUsd(null);
+    setCompleted(false);
     setRunning(true);
     const abort = new AbortController();
     abortRef.current = abort;
@@ -110,6 +119,7 @@ export default function Home() {
           setEvents((prev) => [...prev, ev]);
           if (ev.kind === "result") {
             setLastCostUsd(ev.cost);
+            setCompleted(true);
           }
         }
       }
@@ -201,8 +211,13 @@ export default function Home() {
                 <p className="text-sm text-zinc-500">まだ実行されていません。</p>
               )}
               {events.map((ev, i) => (
-                <EventRow key={i} ev={ev} />
+                <EventRow
+                  key={i}
+                  ev={ev}
+                  collapse={completed && (ev.kind === "thinking" || ev.kind === "tool")}
+                />
               ))}
+              <div ref={bottomRef} aria-hidden />
             </div>
           </section>
         </div>
@@ -266,6 +281,9 @@ function CostPanel({
           </button>
         </div>
       </div>
+      <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+        モデル: <span className="font-mono text-zinc-700 dark:text-zinc-300">{MODEL}</span>
+      </div>
     </div>
   );
 }
@@ -325,7 +343,7 @@ function toEvent(raw: Record<string, unknown>): Event {
   return { kind: "system", text: JSON.stringify(raw) };
 }
 
-function EventRow({ ev }: { ev: Event }) {
+function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
   const base = "rounded border px-3 py-2 text-sm";
   switch (ev.kind) {
     case "status":
@@ -336,6 +354,18 @@ function EventRow({ ev }: { ev: Event }) {
         </div>
       );
     case "tool":
+      if (collapse) {
+        return (
+          <details className={`${base} border-blue-300 dark:border-blue-900 bg-blue-50 dark:bg-blue-950`}>
+            <summary className="cursor-pointer font-mono text-xs text-blue-700 dark:text-blue-300">
+              tool: {ev.tool}
+            </summary>
+            <pre className="mt-1 whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
+              {JSON.stringify(ev.input, null, 2)}
+            </pre>
+          </details>
+        );
+      }
       return (
         <div className={`${base} border-blue-300 dark:border-blue-900 bg-blue-50 dark:bg-blue-950`}>
           <div className="font-mono text-xs text-blue-700 dark:text-blue-300">
@@ -347,6 +377,20 @@ function EventRow({ ev }: { ev: Event }) {
         </div>
       );
     case "thinking":
+      if (collapse) {
+        return (
+          <details className={`${base} border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300`}>
+            <summary className="cursor-pointer text-xs">
+              thinking
+              <span className="ml-2 text-purple-500 dark:text-purple-400 italic font-normal">
+                {ev.text.slice(0, 60).replace(/\s+/g, " ")}
+                {ev.text.length > 60 ? "…" : ""}
+              </span>
+            </summary>
+            <div className="mt-1 whitespace-pre-wrap italic">{ev.text}</div>
+          </details>
+        );
+      }
       return (
         <div className={`${base} border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300 italic`}>
           <span className="text-xs not-italic">thinking</span>
