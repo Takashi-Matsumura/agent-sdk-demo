@@ -2,10 +2,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { getTotals, insertRun } from "@/app/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+const MODEL = "claude-sonnet-4-6";
 
 const SYSTEM_PROMPT = `You are a senior software engineer doing a code review.
 
@@ -66,7 +69,7 @@ export async function POST(request: Request) {
         for await (const msg of query({
           prompt: `Please review ${filename} in the current directory.`,
           options: {
-            model: "claude-sonnet-4-6",
+            model: MODEL,
             cwd: workDir,
             systemPrompt: SYSTEM_PROMPT,
             allowedTools: ["Read", "Glob", "Grep"],
@@ -76,7 +79,31 @@ export async function POST(request: Request) {
             maxTurns: 20,
           },
         })) {
-          forward(msg, send);
+          const persistFinish = forward(msg, send);
+          if (persistFinish) {
+            try {
+              insertRun({
+                filename,
+                model: MODEL,
+                cost_usd: persistFinish.cost_usd,
+                num_turns: persistFinish.num_turns,
+                duration_ms: persistFinish.duration_ms,
+              });
+              const totals = getTotals();
+              send({
+                type: "usage",
+                count: totals.count,
+                totalUsd: totals.total_usd,
+              });
+            } catch (e) {
+              send({
+                type: "warn",
+                message:
+                  "DB保存に失敗: " +
+                  (e instanceof Error ? e.message : String(e)),
+              });
+            }
+          }
         }
       } catch (err) {
         send({
@@ -105,13 +132,30 @@ function sanitizeFilename(name: string | undefined): string | null {
   return base;
 }
 
-function forward(msg: unknown, send: (e: Record<string, unknown>) => void) {
-  if (!msg || typeof msg !== "object") return;
-  const m = msg as { type?: string; message?: { content?: unknown[] }; subtype?: string; result?: string; total_cost_usd?: number; num_turns?: number };
+type FinishInfo = {
+  cost_usd: number;
+  num_turns: number;
+  duration_ms: number | null;
+};
+
+function forward(
+  msg: unknown,
+  send: (e: Record<string, unknown>) => void,
+): FinishInfo | null {
+  if (!msg || typeof msg !== "object") return null;
+  const m = msg as {
+    type?: string;
+    message?: { content?: unknown[] };
+    subtype?: string;
+    result?: string;
+    total_cost_usd?: number;
+    num_turns?: number;
+    duration_ms?: number;
+  };
 
   if (m.type === "system" && m.subtype === "init") {
     send({ type: "system", message: "セッション初期化完了" });
-    return;
+    return null;
   }
 
   if (m.type === "assistant" && m.message?.content) {
@@ -128,16 +172,23 @@ function forward(msg: unknown, send: (e: Record<string, unknown>) => void) {
         send({ type: "thinking", text: block.thinking });
       }
     }
-    return;
+    return null;
   }
 
   if (m.type === "result") {
+    const cost = m.total_cost_usd ?? 0;
+    const turns = m.num_turns ?? 0;
+    const duration = typeof m.duration_ms === "number" ? m.duration_ms : null;
     send({
       type: "result",
       subtype: m.subtype,
       result: m.result ?? "",
-      total_cost_usd: m.total_cost_usd ?? 0,
-      num_turns: m.num_turns ?? 0,
+      total_cost_usd: cost,
+      num_turns: turns,
     });
+    if (m.subtype === "success") {
+      return { cost_usd: cost, num_turns: turns, duration_ms: duration };
+    }
   }
+  return null;
 }

@@ -11,6 +11,7 @@ type Event =
   | { kind: "text"; text: string }
   | { kind: "thinking"; text: string }
   | { kind: "result"; text: string; cost: number; turns: number }
+  | { kind: "warn"; text: string }
   | { kind: "error"; text: string };
 
 type FxRate = {
@@ -37,6 +38,7 @@ export default function Home() {
   const [fx, setFx] = useState<FxRate | null>(null);
   const [lastCostUsd, setLastCostUsd] = useState<number | null>(null);
   const [totalCostUsd, setTotalCostUsd] = useState(0);
+  const [runCount, setRunCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -45,6 +47,16 @@ export default function Home() {
       .then((d) => {
         if (d && typeof d.rate === "number") {
           setFx({ rate: d.rate, asOf: d.asOf });
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/usage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          if (typeof d.totalUsd === "number") setTotalCostUsd(d.totalUsd);
+          if (typeof d.count === "number") setRunCount(d.count);
         }
       })
       .catch(() => {});
@@ -89,11 +101,15 @@ export default function Home() {
           buffer = buffer.slice(nl + 1);
           if (!line) continue;
           const parsed = JSON.parse(line) as Record<string, unknown>;
+          if (parsed.type === "usage") {
+            if (typeof parsed.totalUsd === "number") setTotalCostUsd(parsed.totalUsd);
+            if (typeof parsed.count === "number") setRunCount(parsed.count);
+            continue;
+          }
           const ev = toEvent(parsed);
           setEvents((prev) => [...prev, ev]);
           if (ev.kind === "result") {
             setLastCostUsd(ev.cost);
-            setTotalCostUsd((t) => t + ev.cost);
           }
         }
       }
@@ -108,34 +124,38 @@ export default function Home() {
   };
 
   const cancel = () => abortRef.current?.abort();
-  const resetTotal = () => {
+  const resetTotal = async () => {
+    if (!confirm("累計利用料と履歴をすべて削除します。よろしいですか？")) return;
+    await fetch("/api/usage", { method: "DELETE" }).catch(() => {});
     setTotalCostUsd(0);
+    setRunCount(0);
     setLastCostUsd(null);
   };
 
   return (
-    <div className="flex-1 lg:h-screen lg:overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 lg:h-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-full">
-          <section className="flex flex-col gap-4 lg:h-full lg:overflow-hidden lg:min-h-0">
-            <header className="lg:shrink-0">
+    <div className="flex-1 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
+          <section className="flex flex-col gap-4 lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] lg:overflow-hidden">
+            <header className="shrink-0">
               <h1 className="text-2xl font-semibold">Claude Agent SDK · コードレビュー</h1>
               <p className="text-sm text-zinc-500 mt-1">
                 Read / Glob / Grep のみを許可した読み取り専用エージェントが、貼り付けたコードをレビューします。
               </p>
             </header>
 
-            <div className="lg:shrink-0">
+            <div className="shrink-0">
               <CostPanel
                 fx={fx}
                 lastUsd={lastCostUsd}
                 totalUsd={totalCostUsd}
+                runCount={runCount}
                 onReset={resetTotal}
               />
             </div>
 
             <div className="flex flex-col gap-3 lg:flex-1 lg:min-h-0">
-              <div className="flex items-center gap-3 lg:shrink-0">
+              <div className="flex items-center gap-3 shrink-0">
                 <label className="text-sm font-medium">ファイル名</label>
                 <input
                   className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm w-64"
@@ -146,13 +166,13 @@ export default function Home() {
                 <span className="text-xs text-zinc-500">拡張子で言語を Claude に伝えます</span>
               </div>
               <textarea
-                className="w-full rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 font-mono text-sm h-72 lg:h-auto lg:flex-1 lg:min-h-[12rem] resize-none"
+                className="w-full rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 font-mono text-sm h-72 lg:h-auto lg:flex-1 lg:min-h-0 resize-none"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 disabled={running}
                 spellCheck={false}
               />
-              <div className="flex gap-2 lg:shrink-0">
+              <div className="flex gap-2 shrink-0">
                 <button
                   onClick={review}
                   disabled={running || !code.trim()}
@@ -172,8 +192,8 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="space-y-3 lg:h-full lg:overflow-y-auto lg:pr-2 lg:pb-2 lg:min-h-0">
-            <h2 className="text-lg font-semibold lg:sticky lg:top-0 bg-zinc-50 dark:bg-zinc-950 lg:py-1 lg:z-10">
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold sticky top-0 bg-zinc-50 dark:bg-zinc-950 py-1 z-10">
               エージェントの動き
             </h2>
             <div className="space-y-2">
@@ -195,11 +215,13 @@ function CostPanel({
   fx,
   lastUsd,
   totalUsd,
+  runCount,
   onReset,
 }: {
   fx: FxRate | null;
   lastUsd: number | null;
   totalUsd: number;
+  runCount: number;
   onReset: () => void;
 }) {
   const lastJpy = lastUsd != null && fx ? lastUsd * fx.rate : null;
@@ -216,7 +238,7 @@ function CostPanel({
             emptyLabel="未実行"
           />
           <Stat
-            label="累計利用料"
+            label={`累計利用料 · ${runCount}回`}
             usd={totalUsd}
             jpy={totalJpy}
             emptyLabel="0"
@@ -237,10 +259,10 @@ function CostPanel({
           </div>
           <button
             onClick={onReset}
-            disabled={totalUsd === 0}
+            disabled={totalUsd === 0 && runCount === 0}
             className="mt-2 text-xs underline text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 disabled:opacity-40 disabled:no-underline"
           >
-            累計をリセット
+            履歴を削除
           </button>
         </div>
       </div>
@@ -298,6 +320,7 @@ function toEvent(raw: Record<string, unknown>): Event {
       turns: Number(raw.num_turns ?? 0),
     };
   }
+  if (t === "warn") return { kind: "warn", text: String(raw.message ?? "") };
   if (t === "error") return { kind: "error", text: String(raw.message ?? "") };
   return { kind: "system", text: JSON.stringify(raw) };
 }
@@ -347,6 +370,12 @@ function EventRow({ ev }: { ev: Event }) {
               <Markdown>{ev.text}</Markdown>
             </div>
           )}
+        </div>
+      );
+    case "warn":
+      return (
+        <div className={`${base} border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300`}>
+          {ev.text}
         </div>
       );
     case "error":
