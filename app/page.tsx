@@ -405,15 +405,8 @@ function EventRow({ ev, collapse }: { ev: Event; collapse?: boolean }) {
       );
     case "result":
       return (
-        <div className={`${base} border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950`}>
-          <div className="text-xs text-green-700 dark:text-green-300">
-            完了 · {ev.turns} ターン · ${ev.cost.toFixed(4)}
-          </div>
-          {ev.text && (
-            <div className="mt-2">
-              <Markdown>{ev.text}</Markdown>
-            </div>
-          )}
+        <div className={`${base} border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 font-medium`}>
+          完了 · {ev.turns} ターン · ${ev.cost.toFixed(4)}
         </div>
       );
     case "warn":
